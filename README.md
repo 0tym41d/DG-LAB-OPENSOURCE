@@ -1,4 +1,3 @@
-# DG-LAB Opensource
 Project goals:
 1. Translate docs into English for easier reference and extend them as needed
 2. Create IoT devices that can control the Coyote control unit or act as programmable sensors for it 
