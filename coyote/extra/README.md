@@ -1,3 +1,93 @@
+## Coyote Pulse Waveform (auto-translated)
+
+In this article, we will partially explain the waveform protocol of the Coyote Pulse Host to help the majority of Coyote enthusiasts better understand the data principle of the pulse waveform.
+
+### Concept Explanation
+
+#### Waveform frequency
+
+The coyote program divides each second into 1000 milliseconds, and can generate a pulse in each millisecond. We encode the pattern of pulse generation by controlling the pulse and the interval.
+
+The waveform frequency represents the duration of one output unit (an output unit consists of X pulses and Y intervals) and is measured in milliseconds.
+
+So if you want to output a 1Hz waveform, the actual waveform frequency = 1000ms; if you want to output a 50Hz waveform, the waveform frequency = 20ms.
+
+| Pulse frequency | Waveform frequency |
+|:------:|:------:|
+| 1Hz | 1000ms |
+| 5Hz | 200ms |
+| 10Hz | 100ms |
+| 50Hz | 20ms |
+| 100Hz | 10ms |
+| 500Hz | 2ms |
+| 1000Hz | 1ms |
+
+In the Coyote V2 protocol, the waveform frequency is determined by [X and Y](/coyote/v2/README_V2.md), where X means X pulses are emitted continuously for X milliseconds, and Y means that after X pulses, X pulses will be emitted again for Y milliseconds and the cycle will continue.
+
+> eg
+
+Parameter [1,9] means that one pulse is sent every 9ms, and the total duration is 10ms, that is, the pulse frequency is 100hz and the waveform frequency is 10ms. Parameter [5,95] means that 5 pulses are sent every 95ms, and the total duration is 100ms. Since these five pulses are connected together and the duration is only 5ms, the user will only feel one (five-in-one) pulse, so the pulse frequency in the user's body is 10hz and the waveform frequency is 100ms.
+
+In the Coyote V3 protocol, we only provide the input of the waveform frequency value, and the distribution of pulses (X) and intervals (Y) in the waveform frequency is determined by the [frequency balance parameter 1](/coyote/v3/README_V3.md) in the V3 protocol.
+
+In the V3 protocol, the input of the waveform frequency needs to undergo a compression conversion. If the user wants the waveform frequency to change linearly, please refer to the following example.
+
+>eg 1 
+1. Determine the pulse frequency to be linearly changed, for example: 1Hz, 2Hz, 3Hz, 4Hz, 5Hz, 6Hz, 7Hz, 8Hz, 9Hz, 10Hz 2. Convert to waveform frequency value: 1000ms, 500ms, 333ms, 250ms, 200ms, 166ms, 142ms, 125ms, 111ms, 100ms 3. According to the conversion formula of V3 protocol, convert the waveform frequency into actual input value: 240 
+, 180, 146, 130, 120, 113, 108, 105, 102, 100 4. According to the protocol, 4 groups are used, and the missing ones are supplemented by 0, and input to the device every 100ms
+
+
+
+>eg 2 
+1. Determine the waveform frequency value to be linearly changed, for example: 100ms, 200ms, 300ms, 400ms, 500ms, 600ms, 700ms, 800ms, 900ms, 1000ms 
+2. According to the conversion consensus of the V3 protocol, convert the waveform frequency into the actual input value: 100, 120, 140, 160, 180, 200, 210, 220, 230, 240 
+3. According to the protocol, 4 groups are added, and the missing ones are supplemented with 0, and input to the device every 100ms
+
+#### Conversion between waveform frequency and actual input value
+
+Since the human body is not sensitive to subtle changes in frequency, the larger the waveform frequency (output unit), the more subtle the pulse frequency change corresponding to the waveform frequency (output unit duration) change. In addition, this conversion can compress the data length, allowing interaction with shorter data.
+
+| Waveform frequency | Output value | Pulse frequency |
+|:-----:|:---:|:------:|
+| 10ms | 10 | 100Hz |
+| 20ms | 20 | 50Hz |
+| 50ms | 50 | 20Hz |
+| 100ms | 100 | 10Hz |
+| 110ms | 102 | 9Hz |
+| 150ms | 110 | 6.6Hz |
+| 650ms | 204 | 1.53Hz |
+| 680ms | 208 | 1.47Hz |
+| 750ms | 215 | 1.33Hz |
+
+#### Waveform Intensity
+
+A pulse consists of two symmetrical positive and negative unipolar pulses. The height (voltage) of the two unipolar pulses is determined by the strength of this channel. We control the intensity of the feeling brought by the pulse by controlling the pulse width. The wider the pulse, the stronger the feeling, and vice versa, the narrower the pulse, the weaker the feeling. The rhythmic change of pulse width can create different pulse feelings.
+
+In the Coyote V2 protocol, the waveform strength is determined by [Z](/coyote/v2/README_V2.md), and the value range of the official APP is (0 ~ 20). The waveform strength is a relative value, so there is no actual unit to represent it.
+
+In the Coyote V3 protocol, the value range of waveform intensity is (0 ~ 100). Waveform intensity is a relative value, so there is no actual unit to represent it.
+
+The mapping relationship between the waveform intensity of V2 and the waveform intensity of V3 is: (waveform intensity 20 in V2 protocol) ≈ (waveform intensity 100 in V3 protocol)
+
+### Output Window
+
+The output window of the V2 protocol is 100ms, and the output window of the V3 protocol is 25ms, but the data is set in 4 groups each time, so it can still be considered as 100ms.
+
+Many people are confused about the conflict between the waveform frequency value and the output window value. The waveform frequency duration is greater than the output window, so how will the device handle the data input in the next cycle?
+
+Our device has a relatively complex way of dealing with this situation. We will not describe the details for now, but here are a few suggestions:
+
+1. If you want to output a certain waveform frequency stably, it is recommended to input the waveform frequency value stably.
+2. If the waveform frequency value is greater than the output window, and the waveform frequency input in the next cycle changes, then the actual output pulse may not be the effect corresponding to the input value, but the effect after complex processing.
+
+### Convert V2 protocol waveform to V3 protocol waveform
+
+V3 waveform frequency = V2 (X + Y), then perform the conversion from (10 ~ 1000) -> (10 ~ 240)
+
+V3 waveform intensity = V2 (Z * 5)
+
+
+
 ## 郊狼脉冲波形
 
 本文我们将关于郊狼脉冲主机的波形协议进行部分解释，帮助广大郊狼爱好者更好理解脉冲波形的数据原理。

@@ -1,3 +1,11 @@
+# DG-LAB Opensource
+Project goals:
+1. Translate docs into English for easier reference and extend them as needed
+2. Create IoT devices that can control the Coyote control unit or act as programmable sensors for it 
+3. Create web interface with bare minimum/functional ui design
+4. Document bugs, glitches etc. and tell the original developers
+5. Ultimately create smart garments and smart home integration that guides the wearer using TENS
+
 # DG-LAB 开源
 
 DG-LAB 设备在全球范围得到广大朋友的认可与喜爱.很多朋友们希望我们的设备可以参与到更多的场景中去,为此我们将 DG-LAB 具有代表性的设备蓝牙协议以开源的形式分享出来，您可以通过无数种其他编程的方式将 DG-LAB 设备参与到您自己的娱乐场景中去.

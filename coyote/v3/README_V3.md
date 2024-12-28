@@ -1,3 +1,402 @@
+## Coyote Pulse Host V3 (mostly auto-translated)
+
+### Bluetooth Features
+
+| Service UUID | Characteristic UUID | Attributes | Name | Size (BYTE) | Description |
+|:-------:| :----: |:----:|:----------------:|:--------: | :----------------: |
+| 0x180C | 0x150A | Write | WRITE | Up to 20 bytes | All commands are entered in this feature |
+| 0x180C | 0x150B | Notification | NOTIFY | Maximum length: 20 bytes | All response messages are returned in this feature |
+| 0x180A | 0x1500 | READ/NOTIFY | 1 byte | Battery information |
+
+> Base UUID: 0000`xxxx`-0000-1000-8000-00805f9b34fb (replace xxxx with the service/characteristic UUID)
+
+### Bluetooth name
+
+Pulse Host 3.0 : 47L121000
+Wireless sensor: 47L120100
+
+### Basic Principles
+
+Coyote has two built-in independent pulse generation modules, corresponding to channels A and B respectively. 
+
+Each pulse generation module consists of two parts: channel strength and channel waveform data.
+
+The pulse generation module is controlled by six variables: channel strength, channel strength soft upper limit, waveform frequency, waveform strength, frequency balance parameter 1, and frequency balance parameter 2.
+
+### Bluetooth Commands
+Unlike the V2 protocol, data does not need to be converted to big and small endian.
+
+
+#### B0 Instructions
+
+The B0 instruction writes the channel intensity change and channel waveform data. The instruction data length is 20 bytes and is written every 100ms. The data of both channels are in the same instruction.
+
+
+```
+0xB0 (1-byte command HEAD) + serial number (4 bits) + intensity change method (4 bits) + A channel intensity value (1 byte) + B channel intensity value (1 byte) + A channel waveform frequency 4 lines (4 bytes) + A channel waveform intensity 4 lines (4 bytes) + B channel waveform frequency 4 lines (4 bytes) + B channel waveform intensity 4 lines (4 bytes)
+```
+
+
+##### Serial Number
+The serial number range is (0b0000 \~ 0b1111). If the channel strength of the pulse host is modified in the input data, set the serial number>0, and the pulse host will return the modified channel strength from feature 0x150B with the same serial number in the B1 response message. If feedback is not needed, set the serial number to 0b0000.
+
+It is recommended to wait for response on 150B with the same sequence number before modifying the strenght further to avoid problems.
+
+[comment]: # Test problem cases
+
+###### How to set the intensity
+The 4 bits of intensity value interpretation are divided into two parts. The upper two bits represent channel A, and the lower two bits represent channel B.
+
+Change method: 
+0b00 -> means  the intensity of the corresponding channel does not change regardless of the intensity value
+
+0b11 -> sets the value of the corresponding channel. If the intensity setting value of channel A is 32, then the intensity of channel A is set to 32.
+
+0b01 -> increases intensity for corrosponding channel relatively. E.g. if the intensity setting of channel A is 15 (decimal), then the intensity of channel A is increased by 15.
+
+0b10 -> increases intensity for corrosponding channel relatively. If the intensity setting value of channel A is 17 (decimal), then the intensity of channel A is decreased by 17.
+
+
+> For example,  assume that the current pulse host's A and B channel intensity is both 10
+
+Apart from the 0xB0 (1-byte command HEAD), the serial number (4 bits) and the waveform data, we have:
+
+1. intensity change method: 0b0000, A value :5,  B value:5
+(0b0000 0b00000000 0b00000000)   =>   intensity A: 10, intensity B: 10 (Do not change A, do not change B)
+
+2. intensity change method: 0b0100, intensity value A: 5, intensity value B: 8
+(0b0100 0b00000000 0b00000000) => intensity A: 15, intensity B: 10 (Increase A by 5, do not change B) 
+
+3. intensity change method: 0b0010,  intensity value A: 5, intensity value B:8
+(0b0010 0b00000101 0b00001000) => intensity A: 10, intensity B: 2 (Do not change A, decrease B by 8)
+
+4. intensity change method: 0b0011, intensity value A: 5, intensity value B: 8
+(0b0011 0b00000101 0b00001000) => intensity A: 10, intensity B: 8 (Do not change A, set B to 8)
+
+
+5. intensity change method: 0b0110, intensity value A: 5, intensity value B: 8
+(0b0110 0b00000101 0b00001000) => intensity A: 15, intensity B: 2 (Increase A by 5, decrase B by 8)
+
+6. intensity change  method = 0b1101, intensity value A:  5, intensity value B: 8
+(0b1101 0b00000101 0b00001000) => intensity A: 5, intensity B: 18 (Set A to 5, increase B by 8)
+
+[comment]: # Check all examples
+
+##### Channel intensity value
+The channel intensity  value is 1 byte long, with a valid range of (0~200). Values ​​outside the input range are treated as 0. The absolute range of the strength of each channel of the Coyote host is also (0~200).
+
+
+> eg 
+Assume that the current intensity of channel A is 10 
+1. intensity change method: 0b0100, intensity value A: 195
+(0b0100 0b11000011 0b00000000) => intensity value A: 200 (increase A by 195 to 205, but the ceiling is 200)
+
+
+2. intensity change method: 0b1000, intensity value A: 20
+(0b1000 0b00010100 0b00000000) => intensity value A: 0 (decrease by 20 to -10, but the floor is 0)
+
+3. intensity change method: 0b0100 intensity value A: 201
+(0b0100 0b11001001 0b00000000) => intensity value A: 10 (increase by 201 - which is treated as 0)
+
+4. intensity change method: 0b1100, intensity value A: 201
+(0b1100 0b11001001 0b00000000) => intensity value A: 0 (set to 201 - which is treated as 0)
+
+[comment]: # Check all examples
+
+##### Channel waveform frequency/channel waveform intensity
+
+The channel waveform frequency length is 1 byte, and the value range is (10 ~ 240).
+The channel waveform intensity is 1 byte, and the value range is (0 ~ 100).
+
+
+In the B0 instruction, 4 sets of waveform frequencies and waveform intensities are sent to each channel every 100ms.
+
+Each set of frequency-intensity represents 25ms of waveform output, and the 4 sets of data represent 100ms of data.
+If one value of the waveform date is not in the valid range, the host will discard all 4 sets of data for that
+channel. This can be used to only change the frequency-intensity of one channel.
+
+[comment]: # Test if this feature can be used to not output waveforms at all
+
+
+In addition, for the channel waveform frequency, you can limit the value range to (10 ~ 1000) in your program, and then convert it to the channel waveform frequency to be sent through the following algorithm:
+
+
+```
+Input value range (10 ~ 1000)
+waveform frequency = when(input value){
+    in 10..100 -> {
+        Input value
+    }
+    in 101..600 -> {
+        (Input value - 100)/5 + 100
+    }
+    in 601..1000 -> {
+        (Input value - 600)/10 + 200
+    }
+    else -> {
+        10
+    }
+}
+```
+
+[comment]: # Check why this is useful
+
+> For example, 
+the following is an example of waveform data for channel A: 
+
+1. The waveform frequency is 4 = {10,10,20,30}, the waveform intensity is {0,5,10,50},
+=> channel A outputs the waveform normally.
+
+2. The waveform frequency is 4 = {10,10,20,30}, the waveform intensity is {0,5,10,101}
+=> channel A abandons all 4 sets of data and does not output the waveform.
+
+
+
+#### BF Instructions
+
+The BF command writes the channel intensity soft upper limit + waveform frequency balance parameter + waveform intensity balance parameter of the pulse host. The command data length is 7 bytes.
+```
+0xBF (1 byte command HEAD) + AB two-channel strength soft upper limit (2 bytes) + AB two-channel waveform frequency balance parameter (2 bytes) + AB two-channel waveform strength balance parameter (2 bytes)
+```
+
+##### Channel strength soft cap
+The soft upper limit of channel strength can limit the maximum value that the pulse host channel strength can reach, and the setting is saved when the power is off. The value range is (0~200). The value outside the input range will not modify the soft upper limit.
+
+Assuming that the soft upper limits of the AB channels are set to 150 and 30, then no matter how the intensity is modified by turning the wheel or the B0 command, the channel intensity of channel A will only be in the range (0 ~ 150), and the channel intensity of channel B will only be in the range (0 \~ 30), and the channel intensity of the pulse host will never exceed the soft upper limit.
+
+
+##### Frequency balance parameters 1
+The waveform frequency balance parameter will adjust the feeling of high and low frequencies of the waveform, and the setting is saved when the power is turned off. The value range is (0 \~ 255)
+This parameter controls the relative sensory intensity of different frequency waveforms under fixed channel intensity. The larger the value, the stronger the impact of the low-frequency waveform.
+
+[comment]: # Find out more about this parameter
+
+##### Frequency balance parameters 2
+The waveform intensity balance parameter will adjust the waveform pulse width, and the setting is saved when the power is turned off. The value range is (0 \~ 255)
+This parameter controls the relative sensory intensity of waveforms of different frequencies under fixed channel intensity. The larger the value, the stronger the stimulation of low-frequency waveforms.
+
+### Bluetooth response message
+All data callbacks of the pulse host are returned through the characteristic Notify of 0x180C->0x150B. Please bind the notify to this characteristic after successfully connecting to the pulse host.
+
+[comment]: # Find out more about this parameter
+
+#### B1 Message
+When the pulse host strength changes, the current strength value will be immediately returned through the B1 message. If the strength change is caused by the B0 command, the sequence number returned in the B1 command will be the same as the sequence number contained in the command that caused the change, otherwise the sequence number is 0.
+
+```
+0xB1 (1-byte command HEAD) + sequence number (1-byte) + current actual strength of channel A (1-byte) + current actual strength of channel B (1-byte)
+```
+#### BE Message
+The BE message returns the current AB channel strength soft upper limit + AB channel waveform frequency balance parameter + AB channel waveform strength balance parameter of the pulse host after the corresponding setting of BF input.
+```
+0xBE (1 byte command HEAD) + AB two-channel strength soft upper limit (2 bytes) + AB two-channel waveform frequency balance parameter (2 bytes) + AB two-channel waveform strength balance parameter (2 bytes)
+```
+
+### More Examples
+In summary, unlike the channel intensity/waveform data of V2, the two-channel intensity and two-channel waveform data of V3 are combined in the instruction B0. Here are some examples:
+
+
+>Data = command HEAD + serial number + intensity change method + channel A intensity value + channel B intensity value + channel A waveform frequency {x,x,x,x} + channel A waveform intensity {x,x,x,x} + channel B waveform frequency {x,x,x,x} + channel B waveform intensity {x,x,x,x}
+
+No.1 Do not modify the channel strength, channel A continuously outputs waveform: 
+1-> 0xB0+0b0000+0b0000+0+0+{10,10,10,10}+{0,10,20,30}+{0,0,0,0}+{0,0,0,101} 
+(HEX:0xB00000000A0A0A0A000A141E000000000000065)
+
+
+2-> 0xB0+0b0000+0b0000+0+0+{15,15,15,15}+{40,50,60,70}+{0,0,0,0}+{0,0,0,101} 
+(HEX:0xB00000000F0F0F0F28323C460000000000000065) 
+
+3-> 0xB0+0b0000+0b0000+0+0+{30,30,30,30}+{80,90,100,100}+{0,0,0,0}+{0,0,0,101} 
+(HEX:0xB00000001E1E1E1E505A64640000000000000065) 
+
+4-> 0xB0+0b0000+0b0000+0+0+{40,60,80,100}+{100,90,90,90}+{0,0,0,0}+{0,0,0,101} 
+(HEX:0xB0000000283C5064645A5A5A0000000000000065) 
+
+...
+
+
+No.2 The current A channel strength of the pulse host is 10, and the A channel continuously outputs waveform: 
+
+1-> 0xB0+0b0000+0b0100+5+0+{10,10,10,10}+{0,10,20,30}+{0,0,0,0}+{0,0,0,101} 
+(HEX:0xB00405000A0A0A0A000A141E0000000000000065) 
+
+2-> 0xB0+0b0000+0b0000+0+0+{15,15,15,15}+{40,50,60,70}+{0,0,0,0}+{0,0,0,101} 
+(HEX:0xB00000000F0F0F0F28323C460000000000000065) 
+
+3-> 0xB0+0b0000+0b0000+0+0+{30,30,30,30}+{80,90,100,100}+{0,0,0,0}+{0,0,0,101} 
+(HEX:0xB00000001E1E1E1E505A64640000000000000065) 
+
+4-> 0xB0+0b0001+0b0100+10+0+{40,60,80,100}+{100,90,90,90}+{0,0,0,0}+{0,0,0,101} 
+(HEX:0xB0140A00283C5064645A5A5A0000000000000065) 
+
+... 
+
+In 1, the A channel intensity  is set to +5. After setting, the pulse host A channel intensity will be +5, and the pulse host channel intensity will become 15, but the modified intensity will not be returned through 150B, because the sequence number is 0.
+
+In 4, the A channel intensity is set to +10. After setting, the pulse host A channel intensity be +10, and the pulse host channel intensity A become 25. The A channel intensity:25 is returned through 150B, and the sequence number = 1.
+
+
+No.3 The current A channel strength of the pulse host is 10, and the A channel continuously outputs waveform:
+
+1-> 0xB0+0b0000+0b0000+0+0+{10,10,10,10}+{0,10,20,30}+{0,0,0,0}+{0,0,0,101} 
+(HEX:0xB00000000A0A0A0A000A141E000000000000065) 
+
+2-> 0xB0+0b0000+0b0000+0+0+{15,15,15,15}+{40,50,60,70}+{0,0,0,0}+{0,0,0,101} 
+(HEX:0xB00000000F0F0F0F28323C460000000000000065) 
+
+3-> Move the A channel dial up once and release it. 
+4-> 0xB0+0b0000+0b0000+0+0+{30,30,30,30}+{80,90,100,100}+{0,0,0,0}+{0,0,0,101} 
+(HEX:0xB00000001E1E1E1E505A6464000000000000065) 
+
+5-> 0xB0+0b0000+0b0000+0+0+{40,60,80,100}+{100,90,90,90}+{0,0,0,0}+{0,0,0,101} 
+(HEX:0xB0000000283C5064645A5A5A0000000000000065) 
+
+... 
+
+In 3, if you push the A channel dial upward once and then release it, the pulse host A channel intensity will increase by 1, and the A channel intensity will be returned through 150B = 11, and the serial number = 0.
+[comment]: # Why is the serial number 0 here?
+
+
+No.4 Without modifying the channel strength, both channels A and B output waveforms continuously: 
+
+1-> 0xB0+0b0000+0b0000+0+0+{10,10,10,10}+{0,10,20,30}+{10,10,10,10}+{0,0,0,0} 
+(HEX:0xB00000000A0A0A0A000A141E0A0A0A0A0000000) 
+
+2-> 0xB0+0b0000+0b0000+0+0+{15,15,15,15}+{40,50,60,70}+{10,10,10,10}+{10,10,10,10} 
+(HEX:0xB00000000F0F0F0F28323C460A0A0A0A0A0A0A0A) 
+
+3-> 0xB0+0b0000+0b0000+0+0+{30,30,30,30}+{80,90,100,100}+{10,10,10,10}+{0,0,0,10} 
+(HEX:0xB00000001E1E1E1E505A64640A0A0A0A0000000A) 
+
+4-> 0xB0+0b0000+0b0000+0+0+{40,60,80,100}+{0,90,90,90}+{10,10,10,10}+{0,0,0,10} 
+(HEX:0xB0000000283C5064005A5A5A0A0A0A0A0000000A)
+
+...
+
+Examples of serial number and intensity input (taking channel A as an example):
+```
+
+
+isInputAllowed = true (Whether input intensity is currently allowed)
+accumulatedStrengthValueA = 0 (the accumulated intensity change value not written to channel A)
+deviceStrengthValueA = 0 (current A channel intensity value of the pulse host)
+orderNo = 0 (sequence number)
+inputOrderNo = 0 (the sequence number written in B0)
+strengthParsingMethod = 0b0000 (intensity value interpretation method)
+strengthSettingValueA = 0 (intensity setting value of channel A)
+
+A channel intensity related data processing function
+fun strengthDataProcessingA():Unit{
+    if(isInputAllowed == true) {
+         strengthParsingMethod = if(accumulatedStrengthValueA > 0){
+             0b0100
+         }else if(accumulatedStrengthValueA < 0){
+             0b1000
+         }else{
+             0b0000
+         }
+         orderNo += 1
+         inputOrderNo = orderNo
+         isInputAllowed = false
+         strengthSettingValueA = abs(accumulatedStrengthValueA) (absolute value)
+         accumulatedStrengthValueA = 0
+     }else{
+         orderNo = 0
+         strengthParsingMethod = 0b0000
+         strengthSettingValueA = 0
+     }
+}
+A channel strength response message processing function
+fun strengthDataCallback(returnOrderNo : Int,returnStrengthValueA : Int):Unit{
+    //returnOrderNo returns the input sequence number
+    //returnStrengthValueA returns the current strength of channel A of the pulse host
+    
+    deviceStrengthValueA = returnStrengthValueA
+    if(returnOrderNo == inputNo){
+         isInputAllowed = true
+         strengthParsingMethod = 0b0000
+         strengthSettingValueA = 0
+         inputOrderNo = 0
+     }
+}
+A channel intensity is set to 0
+fun strengthZero():Unit{
+    strengthParsingMethod = 0b1100
+    strengthSettingValueA = 0
+    orderNo = 1
+    inputOrderNo = orderNo
+}
+
+
+[comment]: # Get code to run
+```
+
+The following sequence is chronological, but the sequence numbers do not represent a specific moment:
+
+```
+1 -> Press the A channel intensity '+' button
+     accumulatedStrengthValueA += 1(value=1)
+
+2 -> (100ms period) B0 is ready to write
+     strengthDataProcessingA()
+BLE WRITE 150A(0xB0 + orderNo(0b0001) + strengthParsingMethod(0b0100) + strengthSettingValueA(1) + ...)
+3 -> (100ms period) B0 is ready to write
+     strengthDataProcessingA()
+     BLE WRITE 150A(0xB0 + orderNo(0b0000) + strengthParsingMethod(0b0000) + strengthSettingValueA(1) + ...)
+3 -> 150B Returns the intensity value of channel A
+     BLE NOTIFY 150B(0xB1 + returnOrderNo(1) + returnStrengthValueA(1) + ...)
+     Returned sequence number = 1, returned A channel strength = 1
+     strengthDataCallback(1,1)
+4 -> Press the A channel intensity '+' button    
+     accumulatedStrengthValueA += 1(value=1)
+5 -> Press the A channel intensity '+' button
+     accumulatedStrengthValueA += 1(value=2)
+6 -> Press the A channel intensity '+' button
+     accumulatedStrengthValueA += 1(value=3)
+7 -> (100ms period) B0 is ready to write
+     strengthDataProcessingA()
+     BLE WRITE 150A(0xB0 + orderNo(0b0001) + strengthParsingMethod(0b0100) + strengthSettingValueA(3) + ...)
+8 -> Press the A channel intensity '+' button
+     accumulatedStrengthValueA += 1(value=1)  
+9 -> (100ms period) B0 is ready to write
+     strengthDataProcessingA()
+     BLE WRITE 150A(0xB0 + orderNo(0b0000) + strengthParsingMethod(0b0000) + strengthSettingValueA(0) + ...)     
+10->150B Returns the intensity value of channel A
+     BLE NOTIFY 150B(0xB1 + returnOrderNo(1) + returnStrengthValueA(4) + ...)
+     Returned sequence number = 1, returned A channel strength = 4
+     strengthDataCallback(1,4)     
+11->Press the A channel intensity '+' button
+     accumulatedStrengthValueA += 1(value=2)
+12-> (100ms cycle) B0 is ready to write
+     strengthDataProcessingA()
+     BLE WRITE 150A(0xB0 + orderNo(0b0001) + strengthParsingMethod(0b0100) + strengthSettingValueA(2) + ...)
+13-> Press the A channel intensity '-' button
+     accumulatedStrengthValueA -= 1(value= -1)
+14->150B Returns the intensity value of channel A
+     BLE NOTIFY 150B(0xB1 + returnOrderNo(1) + returnStrengthValueA(6) + ...)
+     Returned sequence number = 1, returned channel A strength = 6
+     strengthDataCallback(1,6)
+15-> (100ms period) B0 is ready to write
+     strengthDataProcessingA()
+     BLE WRITE 150A(0xB0 + orderNo(0b0010) + strengthParsingMethod(0b1000) + strengthSettingValueA(1) + ...)
+16->150B Returns the intensity value of channel A
+     BLE NOTIFY 150B(0xB1 + returnOrderNo(2) + returnStrengthValueA(5) + ...)
+     Returned sequence number = 2, returned channel A strength = 5
+     strengthDataCallback(1,5)
+17-> (100ms period) B0 is ready to write
+     strengthZero()
+     BLE WRITE 150A(0xB0 + orderNo(0b0001) + strengthParsingMethod(0b1100) + strengthSettingValueA(0) + ...)
+18->150B Returns the intensity value of channel A
+     BLE NOTIFY 150B(0xB1 + returnOrderNo(1) + returnStrengthValueA(0) + ...)
+     Returned sequence number = 1, returned A channel strength = 0
+     strengthDataCallback(1,0)
+......     
+```
+
+[comment]: # Check example
+
+
+
 ## 郊狼情趣脉冲主机V3
 
 ### 蓝牙特性
