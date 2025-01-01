@@ -62,10 +62,10 @@ Change method:
 Apart from the 0xB0 (1-byte command HEAD), the serial number (4 bits) and the waveform data, we have:
 
 1. intensity change method: 0b0000, A value :5,  B value:5
-(0b0000 0b00000000 0b00000000)   =>   intensity A: 10, intensity B: 10 (Do not change A, do not change B)
+(0b0000 0b00000101 0b00000101)   =>   intensity A: 10, intensity B: 10 (Do not change A, do not change B)
 
 2. intensity change method: 0b0100, intensity value A: 5, intensity value B: 8
-(0b0100 0b00000000 0b00000000) => intensity A: 15, intensity B: 10 (Increase A by 5, do not change B) 
+(0b0100 0b00000101 0b00000101) => intensity A: 15, intensity B: 10 (Increase A by 5, do not change B) 
 
 3. intensity change method: 0b0010,  intensity value A: 5, intensity value B:8
 (0b0010 0b00000101 0b00001000) => intensity A: 10, intensity B: 2 (Do not change A, decrease B by 8)
