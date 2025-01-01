@@ -2,9 +2,47 @@
 Project goals:
 1. Translate docs into English for easier reference and extend them as needed
 2. Create IoT devices that can control the Coyote control unit or act as programmable sensors for it 
-3. Create web interface with bare minimum/functional ui design
+3. Create web interface with bare minimum/functional ui design / befriend frontend devs
 4. Document bugs, glitches etc. and tell the original developers
 5. Ultimately create smart garments and smart home integration that guides the wearer using TENS
+
+# DG-LAB Open Source
+
+DG-LAB devices are recognized and loved by friends around the world. Many friends hope that our devices can be used in more scenarios. For this reason, we share the DG-LAB representative device Bluetooth protocol in the form of open source. You can use countless other programming methods to make DG-LAB devices participate in your own entertainment scenarios.
+
+> The open source Bluetooth protocol is designed to allow DG-LAB enthusiasts to use the device more freely. Please do not use this content for any commercial purpose without authorization. If necessary, please [Contact us](https://www.dungeon-lab.com)
+
+![Coyote stun gun LOGO](image/DG-LAB_492.png)
+
+## Coyote Pleasure Pulse Host
+
+[Bluetooth Protocol V2](coyote/v2/README_V2.md)
+
+[Bluetooth Protocol V3](coyote/v3/README_V3.md)
+
+[SOCKET Control Protocol V3](socket/README.md)
+
+[Coyote WEB Bluetooth direct connection test](coyote/web/README.md)
+
+[Pulse Waveform Explanation](coyote/extra/README.md)
+
+2024/10/28 -> Added V2/V3 waveform sample data
+
+2024/09/14 -> Updated V3 version socket control function QA documentation
+
+2024/06/03 -> Updated the front-end logic of the socket control function of V3 version
+
+2024/05/13 -> Updated Coyote WEB Bluetooth direct connection test
+
+2024/04/25 -> Updated some explanations of pulse waveform
+
+2024/01/11 -> Updated the channel strength and waveform output related protocols of V3 version
+
+V3 accessories gameplay related content and open source form are being revised
+
+Technical consultation QQ: 3849540080 (only for consultation on open source technology related issues)
+
+
 
 # DG-LAB 开源
 
